@@ -14,4 +14,12 @@ app.use(express.urlencoded({extended: true, limit: "16kb"})) // Url encoded will
 app.use(express.static("public")) // To store temp files
 app.use(cookieParser())
 
+
+// Routes import 
+import userRouter from './routes/user.routes.js'
+
+
+// routes declaration
+app.use("/api/v1/users", userRouter)
+
 export { app }
