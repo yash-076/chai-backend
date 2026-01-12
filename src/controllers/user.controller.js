@@ -1,7 +1,7 @@
 import { asyncHandler } from "../utils/asyncHandler.js";
 import {ApiError} from "../utils/ApiError.js"
 import { User } from "../models/user.model.js"
-import { uploadOnCloudinary } from "../utils/cloudinary.js"
+import { uploadOnCloudinary, removeFromCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
 
@@ -209,6 +209,7 @@ const refreshAccessToken = asyncHandler(async(req, res)=>{
 })
 
 const changeCurrentPassword = asyncHandler(async(req, res)=>{
+
     const { oldPassword, newPassword } = req.body
 
     const user = await User.findById(req.user?._id)
@@ -264,10 +265,13 @@ const updateUserAvatar = asyncHandler(async(req, res)=>{
     if(!avatarLocalPath){
         throw new ApiError(400, "Avatar is Missing")
     }
-    
+
+    // use the avatar from req.user to avoid an extra DB read
+    const previousAvatarUrl = req.user?.avatar
+
     const avatar = await uploadOnCloudinary(avatarLocalPath)
     
-    if(!avatar.url){
+    if(!avatar?.url){
         throw new ApiError(400, "Error while Uploading the Image")
     }
 
@@ -281,6 +285,15 @@ const updateUserAvatar = asyncHandler(async(req, res)=>{
         { new: true }
     ).select("-password")
 
+    // best-effort deletion of previous avatar (do not fail response)
+    if (previousAvatarUrl) {
+        try {
+            await removeFromCloudinary(previousAvatarUrl)
+        } catch (err) {
+            console.error("Failed to delete previous avatar:", err?.message || err)
+        }
+    }
+
     return res
     .status(200)
     .json(new ApiResponse(200, user, "Avatar Updated Successfully!"))
@@ -292,6 +305,8 @@ const updateUserCoverImage = asyncHandler(async(req, res)=>{
     if(!coverImageLocalPath){
         throw new ApiError(400, "Cover Image is Missing")
     }
+
+    const previousCoverImage = req.user?.coverImage
     
     const coverImage = await uploadOnCloudinary(coverImageLocalPath)
     
@@ -308,6 +323,15 @@ const updateUserCoverImage = asyncHandler(async(req, res)=>{
         },
         { new: true }
     ).select("-password")
+
+    // best-effort deletion of previous avatar (do not fail response)
+    if (previousCoverImage) {
+        try {
+            await removeFromCloudinary(previousCoverImage)
+        } catch (err) {
+            console.error("Failed to delete previous coverImage:", err?.message || err)
+        }
+    }
 
     return res
     .status(200)
