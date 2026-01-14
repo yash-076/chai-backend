@@ -55,7 +55,7 @@ const uploadOnCloudinary = async (localFilePath) => {
 
 const removeFromCloudinary = async (lastImageUrl)=>{
     try {
-        if(!lastImageUrl) return null;
+        if(!lastImageUrl) return;
         
         const publicId = getPublicIdFromUrl(lastImageUrl)
 

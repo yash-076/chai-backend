@@ -4,6 +4,7 @@ import { User } from "../models/user.model.js"
 import { uploadOnCloudinary, removeFromCloudinary } from "../utils/cloudinary.js"
 import { ApiResponse } from "../utils/ApiResponse.js"
 import jwt from "jsonwebtoken"
+import mongoose from "mongoose"
 
 const generate_Access_And_Refesh_Tokens = async(userId) => {
     try {
@@ -143,8 +144,8 @@ const logoutUser = asyncHandler(async(req, res) => {
     await User.findByIdAndUpdate(
         req.user._id,
         {
-            $set: {
-                refreshToken: undefined,
+            $unset: {
+                refreshToken: 1, // this removes the filed from document
             }
         },
         {
@@ -341,6 +342,8 @@ const updateUserCoverImage = asyncHandler(async(req, res)=>{
 const getUserChannelProfile = asyncHandler(async(req, res)=>{
     const { username } = req.params
 
+    const viewerId = req.user?._id ? new mongoose.Types.ObjectId(req.user._id) : null
+
     if(!username?.trim()) {
         throw new ApiError(400, "Username is Missing")
     }
@@ -376,11 +379,11 @@ const getUserChannelProfile = asyncHandler(async(req, res)=>{
                     $size: "$subscribedTo"
                 },
                 isSubscribed: {
-                    $condition: {
-                        if: {$in: [req.user?._id, "$subscribers.subscriber"]},
-                        then: true,
-                        else: false
-                    }
+                    $cond: [
+                        viewerId ? { $in: [viewerId, "$subscribers.subscriber"] } : false,
+                        true,
+                        false
+                    ]
                 }
             }
         },
@@ -401,8 +404,6 @@ const getUserChannelProfile = asyncHandler(async(req, res)=>{
     if(!channel?.length){
         throw new ApiError(404, "Channel Does not Exists")
     }
-
-    console.log(channel)
 
     return res
     .status(200)
@@ -426,7 +427,7 @@ const getWatchHistory = asyncHandler(async(req, res)=>{
                     {
                         $lookup: {
                             from: "users",
-                            localField: owner,
+                            localField: "owner",
                             foreignField: "_id",
                             as: "owner",
                             pipeline: [
